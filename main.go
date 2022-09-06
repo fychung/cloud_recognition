@@ -110,12 +110,30 @@ func (o *OneLoopMeasure) CalTSI() {
 		//t1 := o.AllPitch[i].Time - o.AllPitch[i-1].Time
 		//t2 := o.AllPitch[i-1].Time - o.AllPitch[i-2].Time
 		//calTsi := ((o.AllPitch[i].CI-o.AllPitch[i-1].CI)/t1 - (o.AllPitch[i-1].CI-o.AllPitch[i-2].CI)/t2) / ((t1 + t2) / 2)
-		calTsi := math.Abs((o.AllPitch[i-2].CI-o.AllPitch[i].CI)/2 - o.AllPitch[i-1].CI)
+		calTsi := math.Abs((o.AllPitch[i-2].CI+o.AllPitch[i].CI)/2 - o.AllPitch[i-1].CI)
 		tsi = append(tsi, calTsi)
 		//存回去
 		o.AllPitch[i-1].Tsi = calTsi
 	}
 	o.TSI = tsi
+}
+
+func GetAllZenith(allPitchData []*PitchData) []*PitchData {
+	var allZenith []*PitchData
+	for _, data := range allPitchData {
+		if data.PitchAngle == 90 {
+			allZenith = append(allZenith, data)
+		}
+	}
+	return allZenith
+}
+
+func CalZenithTSI(allZenith []*PitchData) {
+	for i := 2; i < len(allZenith); i++ {
+		calTsi := math.Abs((allZenith[i-2].CI+allZenith[i].CI)/2 - allZenith[i-1].CI)
+		//存回去
+		allZenith[i-1].Tsi = calTsi
+	}
 }
 
 // 计算SP值方法
@@ -133,18 +151,18 @@ func (o *OneLoopMeasure) CalSP() {
 }
 
 // 获取每一轮循环数据
-func GetLoopMeasure(AllPitch []*PitchData) []*OneLoopMeasure {
+func GetLoopMeasure(AllPitch []*PitchData, angleNum int) []*OneLoopMeasure {
 	var allLoopMeasure []*OneLoopMeasure
 	var oneLoopData []*PitchData
-	if len(AllPitch)%11 != 0 {
-		panic("数据条数不是11的倍数")
+	if len(AllPitch)%angleNum != 0 {
+		panic("数据条数不是AngleNum的倍数")
 	}
 	for i := 1; i <= len(AllPitch); i++ {
 		oneLoopData = append(oneLoopData, AllPitch[i-1])
-		if i%11 == 0 {
+		if i%angleNum == 0 {
 			olm := new(OneLoopMeasure)
 			olm.AllPitch = oneLoopData
-			olm.LoopNum = i / 11
+			olm.LoopNum = i / angleNum
 			olm.CalTSI()
 			olm.CalSP()
 			allLoopMeasure = append(allLoopMeasure, olm)
@@ -158,19 +176,20 @@ func GetLoopMeasure(AllPitch []*PitchData) []*OneLoopMeasure {
 type Config struct {
 	SpectrumPath string `json:"spectrum_path"`
 	CaliPath     string `json:"cali_path"`
+	AngleNum     int    `json:"angle_num"`
 }
 
 // 全局变量
 var config Config
 
 // 读取配置文件
-func ReadConfig() (string, string) {
+func ReadConfig() (string, string, int) {
 	conf, err := ioutil.ReadFile("config.json")
 	if err != nil {
 		panic(err)
 	}
 	json.Unmarshal(conf, &config)
-	return config.SpectrumPath, config.CaliPath
+	return config.SpectrumPath, config.CaliPath, config.AngleNum
 }
 
 func main() {
@@ -183,11 +202,12 @@ func main() {
 		}
 	}()
 
-	spec_path, cali_path := ReadConfig()
+	spec_path, cali_path, angle_num := ReadConfig()
 	cali := Readfile(cali_path)
 	wave := GetWaveIndex(cali)
 	allPitch := GetPitchData(spec_path, wave)
-	a := GetLoopMeasure(allPitch)
+	a := GetLoopMeasure(allPitch, angle_num)
+	CalZenithTSI(GetAllZenith(allPitch))
 	result, _ := json.MarshalIndent(a, "", "\t")
 	ioutil.WriteFile("result.json", result, 0666)
 	fmt.Println("完成,按任意键退出。。。")

@@ -1,4 +1,5 @@
 {
     "spectrum_path":"spectrum_path",
-    "cali_path":"cali.txt"
+    "cali_path":"cali.txt",
+    "angle_num":11
 }
