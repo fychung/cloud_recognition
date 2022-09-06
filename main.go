@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -106,9 +107,10 @@ type OneLoopMeasure struct {
 func (o *OneLoopMeasure) CalTSI() {
 	var tsi []float64
 	for i := 2; i < len(o.AllPitch); i++ {
-		t1 := o.AllPitch[i].Time - o.AllPitch[i-1].Time
-		t2 := o.AllPitch[i-1].Time - o.AllPitch[i-2].Time
-		calTsi := ((o.AllPitch[i].CI-o.AllPitch[i-1].CI)/t1 - (o.AllPitch[i-1].CI-o.AllPitch[i-2].CI)/t2) / ((t1 + t2) / 2)
+		//t1 := o.AllPitch[i].Time - o.AllPitch[i-1].Time
+		//t2 := o.AllPitch[i-1].Time - o.AllPitch[i-2].Time
+		//calTsi := ((o.AllPitch[i].CI-o.AllPitch[i-1].CI)/t1 - (o.AllPitch[i-1].CI-o.AllPitch[i-2].CI)/t2) / ((t1 + t2) / 2)
+		calTsi := math.Abs((o.AllPitch[i-2].CI-o.AllPitch[i].CI)/2 - o.AllPitch[i-1].CI)
 		tsi = append(tsi, calTsi)
 		//存回去
 		o.AllPitch[i-1].Tsi = calTsi
