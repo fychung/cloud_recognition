@@ -3,16 +3,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func Readfile(path string) []string {
-	f, err := ioutil.ReadFile(path)
+	f, err := os.ReadFile(path)
 	if err != nil {
 		panic(err)
 	}
@@ -58,9 +58,12 @@ func GetSpectrumData(std []string, waveIndex [2]int) SpectrumData {
 	signal_390, err1 := strconv.ParseFloat(strings.TrimSpace(std[waveIndex[1]+3]), 64)
 	PrintlnErr(err1, std[waveIndex[1]+3])
 	dt := strings.Split(strings.TrimSpace(std[2056]), ":")
-	h, _ := strconv.ParseFloat(dt[0], 64)
-	m, _ := strconv.ParseFloat(dt[1], 64)
-	s, _ := strconv.ParseFloat(dt[2], 64)
+	h, err := strconv.ParseFloat(dt[0], 64)
+	PrintlnErr(err, dt[0])
+	m, err := strconv.ParseFloat(dt[1], 64)
+	PrintlnErr(err, dt[1])
+	s, err := strconv.ParseFloat(dt[2], 64)
+	PrintlnErr(err, dt[2])
 	second := h*3600 + m*60 + s
 	return SpectrumData{signal_330, signal_390, second, signal_330 / signal_390}
 }
@@ -75,7 +78,7 @@ type PitchData struct {
 
 // 获取所有俯仰角测量数据，去掉水平测量
 func GetPitchData(path string, wave [2]int) []*PitchData {
-	allfile, err := ioutil.ReadDir(path)
+	allfile, err := os.ReadDir(path)
 	PrintlnErr(err, path)
 	var allPitchData []*PitchData
 	for _, file := range allfile {
@@ -84,8 +87,10 @@ func GetPitchData(path string, wave [2]int) []*PitchData {
 			spectrumData := GetSpectrumData(Readfile(filepath.Join(path, file.Name())), wave)
 			pd := new(PitchData)
 			pd.FileName = file.Name()
-			pd.PitchAngle, _ = strconv.Atoi(strings.Split(name[3], ".")[0])
-			pd.SpectrumNum, _ = strconv.Atoi(name[1])
+			pd.PitchAngle, err = strconv.Atoi(strings.Split(name[3], ".")[0])
+			PrintlnErr(err, name[3])
+			pd.SpectrumNum, err = strconv.Atoi(name[1])
+			PrintlnErr(err, name[1])
 			pd.CI = spectrumData.CI
 			pd.Signal_330 = spectrumData.Signal_330
 			pd.Signal_390 = spectrumData.Signal_390
@@ -111,6 +116,9 @@ func (o *OneLoopMeasure) CalTSI() {
 		//t2 := o.AllPitch[i-1].Time - o.AllPitch[i-2].Time
 		//calTsi := ((o.AllPitch[i].CI-o.AllPitch[i-1].CI)/t1 - (o.AllPitch[i-1].CI-o.AllPitch[i-2].CI)/t2) / ((t1 + t2) / 2)
 		calTsi := math.Abs((o.AllPitch[i-2].CI+o.AllPitch[i].CI)/2 - o.AllPitch[i-1].CI)
+		if math.IsNaN(calTsi) {
+			panic(fmt.Sprintf("错误光谱:%v,CI值:%v,singal_330:%v,Singal_390:%v", o.AllPitch[i].FileName, o.AllPitch[i].CI, o.AllPitch[i].Signal_330, o.AllPitch[i].Signal_390))
+		}
 		tsi = append(tsi, calTsi)
 		//存回去
 		o.AllPitch[i-1].Tsi = calTsi
@@ -184,7 +192,7 @@ var config Config
 
 // 读取配置文件
 func ReadConfig() (string, string, int) {
-	conf, err := ioutil.ReadFile("config.json")
+	conf, err := os.ReadFile("config.json")
 	if err != nil {
 		panic(err)
 	}
@@ -208,10 +216,13 @@ func main() {
 	allPitch := GetPitchData(spec_path, wave)
 	a := GetLoopMeasure(allPitch, angle_num)
 	CalZenithTSI(GetAllZenith(allPitch))
-	result, _ := json.MarshalIndent(a, "", "\t")
-	ioutil.WriteFile("result.json", result, 0666)
-	fmt.Println("完成,按任意键退出。。。")
-	Pause()
+	result, err := json.MarshalIndent(a, "", "\t")
+	if err != nil {
+		fmt.Println(err)
+	}
+	os.WriteFile("result.json", result, 0666)
+	fmt.Println("完成,5秒后自动关闭。。。")
+	time.Sleep(time.Second * 5)
 }
 
 func Pause() {

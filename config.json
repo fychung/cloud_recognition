@@ -1,5 +1,5 @@
 {
-    "spectrum_path":"spectrum_path",
-    "cali_path":"cali.txt",
+    "spectrum_path":"C:/Users/hyZhong/Desktop/20220710/080514/spectrum_origin",
+    "cali_path":"D:/VisualStudio/C#/云识别/测试数据/cali.txt",
     "angle_num":11
 }
